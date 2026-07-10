@@ -409,7 +409,24 @@ function purge() {
   console.info('Mode: ' + (getConfig().dryRun ? 'DRY RUN (no deletions)' : 'LIVE'))
   console.info('Query: ' + search)
 
+  // Debug: try the raw query first, and also try without the targetLabel
+  console.info('Debug — raw query string: "' + search + '"')
   var threads = GmailApp.search(search, 0, getConfig().batchPageSize)
+
+  // If no results with the targetLabel query, try a fallback search
+  if (threads.length === 0) {
+    var fallbackQuery = 'older_than:' + getConfig().deleteAfterDays + 'd'
+    console.info('Debug — trying fallback query: "' + fallbackQuery + '"')
+    var fallbackThreads = GmailApp.search(fallbackQuery, 0, 5)
+    console.info('Debug — fallback found ' + fallbackThreads.length + ' threads (all mailboxes)')
+    if (fallbackThreads.length > 0) {
+      for (var d = 0; d < Math.min(3, fallbackThreads.length); d++) {
+        console.info('Debug — thread ' + d + ': labels=' + fallbackThreads[d].getLabels().map(function(l){return l.getName()}).join(',') +
+          ' subject="' + fallbackThreads[d].getFirstMessageSubject() + '"' +
+          ' lastDate=' + fallbackThreads[d].getLastMessageDate())
+      }
+    }
+  }
 
   if (threads.length === 0) {
     console.info('No threads matching: ' + search + ' — nothing to purge.')
