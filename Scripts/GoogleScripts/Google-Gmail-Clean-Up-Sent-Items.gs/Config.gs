@@ -42,7 +42,17 @@ var DEFAULT_CONFIG = {
   // Search settings
   // -----------------------------------------------------------------
 
-  targetLabel: 'in:sent',
+  // Gmail search query for messages to purge.
+  //
+  //   "in:sent"                 - all sent mail (Gmail UI syntax)
+  //   "^sent"                   - all sent mail (Gmail API syntax — recommended)
+  //   "label:Sent-Messages"     - a custom label named "Sent-Messages"
+  //   "label:Sent\\Messages"    - nested label "Sent/Messages"
+  //
+  // NOTE: Use "^sent" for the built-in Sent mailbox when using GmailApp.search().
+  // The "in:sent" syntax from the Gmail web UI does not always work with
+  // GmailApp.search() — use "^sent" instead.
+  targetLabel: '^sent',
 
   batchPageSize: 150,
 
