@@ -453,10 +453,13 @@ function purge() {
     var firstDate = messages.length > 0 ? messages[0].getDate() : null
 
     // Log thread details for visibility
+    var labels = thread.getLabels()
+    var labelNames = labels.map(function (l) { return l.getName() }).join(', ')
     console.info('Thread: "' + thread.getFirstMessageSubject() +
       '" | firstMsg=' + (firstDate ? firstDate.toISOString() : 'n/a') +
       ' lastMsg=' + (lastDate ? lastDate.toISOString() : 'n/a') +
-      ' cutoff=' + cutoff.toISOString())
+      ' cutoff=' + cutoff.toISOString() +
+      (labelNames ? ' labels=[' + labelNames + ']' : ' labels=[none]'))
 
     // Use the FIRST message date for the cutoff comparison (when the email
     // was originally sent), not the last message date (which could be a reply).
@@ -473,6 +476,16 @@ function purge() {
     }
 
     if (getConfig().dateRangeEnd && checkDate > getConfig().dateRangeEnd) {
+      results.skipped++
+      continue
+    }
+
+    // Skip threads that have user-applied labels (e.g. "Important", "Legal").
+    // These are conversations the user deliberately organized — the Sent
+    // copy lives inside the thread, but trashing the whole thread would
+    // also remove the filed messages.
+    if (getConfig().skipThreadsWithCustomLabels && labels.length > 0) {
+      console.log('Skipping (has custom labels): "' + thread.getFirstMessageSubject() + '" [' + labelNames + ']')
       results.skipped++
       continue
     }

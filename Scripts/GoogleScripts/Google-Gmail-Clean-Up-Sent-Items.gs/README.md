@@ -10,6 +10,7 @@ Automatically purges sent email messages older than a configurable number of day
 - **Post-execution summary email** — lists all deleted email subjects and dates after each run
 - **Dry-run / simulation mode** — log exactly what would be deleted without actually trashing anything
 - **Batch processing** — automatically continues across runs when large result sets are found
+- **Cross-label protection** — skips threads you've filed under custom labels (e.g. "Important", "Legal") so replies never get trashed along with conversations you deliberately organized
 - **Auto-sync from GitHub** — the script pulls its own code from GitHub on a schedule, no tools or tokens needed
 - **Per-user config** — your personal settings live in a separate file that is NEVER overwritten by sync
 
@@ -106,7 +107,7 @@ This file tells Google which permissions the script needs:
 - `script.projects` — to update its own code from GitHub
 - `script.external_request` — to fetch code from GitHub
 - `script.scriptapp` — for triggers and tokens
-- Email sending scope is auto-detected by Apps Script from `MailApp.sendEmail()` usage
+- `script.send_mail` — to send summary emails via `MailApp.sendEmail()`
 
 ---
 
@@ -295,8 +296,9 @@ var USER_CONFIG = {
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `targetLabel` | `'in:sent'` | Gmail search query identifying messages to purge |
+| `targetLabel` | `'^sent'` | Gmail search query identifying messages to purge. Use `^sent` for the built-in Sent mailbox (works with GmailApp.search). |
 | `batchPageSize` | `150` | Max threads retrieved per Gmail search call (max 500) |
+| `skipThreadsWithCustomLabels` | `true` | When `true`, threads with user-applied labels are skipped. This protects conversations you've filed under labels like "Important" or "Legal" from being trashed along with their Sent copy. Set to `false` to trash ALL old sent threads regardless of labels. |
 
 #### Summary Email
 

@@ -57,6 +57,22 @@ var DEFAULT_CONFIG = {
   batchPageSize: 150,
 
   // -----------------------------------------------------------------
+  // Cross-label protection
+  // -----------------------------------------------------------------
+
+  // When true, threads that have ANY user-applied label are skipped.
+  //
+  // Why: If you reply to an email (creating a Sent copy) and then file
+  // the conversation under a custom label (e.g. "Important", "Legal",
+  // "House"), the Sent message lives in that thread.  The thread still
+  // matches "^sent older_than:Nd" because the Sent copy is part of it,
+  // but you probably do NOT want to trash a conversation you deliberately
+  // organized.
+  //
+  // Set to false to trash ALL old sent threads regardless of labels.
+  skipThreadsWithCustomLabels: true,
+
+  // -----------------------------------------------------------------
   // Summary email
   // -----------------------------------------------------------------
 
