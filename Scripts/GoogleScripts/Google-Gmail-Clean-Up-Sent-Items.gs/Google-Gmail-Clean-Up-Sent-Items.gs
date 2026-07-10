@@ -449,18 +449,29 @@ function purge() {
   for (var i = 0; i < threads.length; i++) {
     var thread = threads[i]
     var lastDate = thread.getLastMessageDate()
+    var firstDate = thread.getFirstMessageDate()
 
-    if (!lastDate || lastDate >= cutoff) {
+    // Log thread details for visibility
+    console.info('Thread: "' + thread.getFirstMessageSubject() +
+      '" | firstMsg=' + (firstDate ? firstDate.toISOString() : 'n/a') +
+      ' lastMsg=' + (lastDate ? lastDate.toISOString() : 'n/a') +
+      ' cutoff=' + cutoff.toISOString())
+
+    // Use the FIRST message date for the cutoff comparison (when the email
+    // was originally sent), not the last message date (which could be a reply).
+    var checkDate = firstDate || lastDate
+
+    if (!checkDate || checkDate >= cutoff) {
       results.skipped++
       continue
     }
 
-    if (getConfig().dateRangeStart && lastDate < getConfig().dateRangeStart) {
+    if (getConfig().dateRangeStart && checkDate < getConfig().dateRangeStart) {
       results.skipped++
       continue
     }
 
-    if (getConfig().dateRangeEnd && lastDate > getConfig().dateRangeEnd) {
+    if (getConfig().dateRangeEnd && checkDate > getConfig().dateRangeEnd) {
       results.skipped++
       continue
     }
@@ -474,7 +485,7 @@ function purge() {
 
     var info = {
       subject: thread.getFirstMessageSubject(),
-      date: lastDate
+      date: checkDate
     }
 
     if (getConfig().dryRun) {
