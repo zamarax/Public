@@ -449,7 +449,8 @@ function purge() {
   for (var i = 0; i < threads.length; i++) {
     var thread = threads[i]
     var lastDate = thread.getLastMessageDate()
-    var firstDate = thread.getFirstMessageDate()
+    var messages = thread.getMessages()
+    var firstDate = messages.length > 0 ? messages[0].getDate() : null
 
     // Log thread details for visibility
     console.info('Thread: "' + thread.getFirstMessageSubject() +
