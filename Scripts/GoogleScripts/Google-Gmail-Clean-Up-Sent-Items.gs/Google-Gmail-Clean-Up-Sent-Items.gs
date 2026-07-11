@@ -592,3 +592,89 @@ function sendSummary(results) {
 
   console.info('Summary email sent to ' + getConfig().summaryEmailTo)
 }
+
+// ===========================================================================
+// Diagnostics
+// ===========================================================================
+
+/**
+ * Diagnostic function: searches for threads matching a subject keyword and
+ * prints every message in each thread with its date, sender, and recipient.
+ *
+ * This helps understand why a thread is NOT matching the purge query.
+ * For example, Gmail's older_than: operator uses the thread's LAST message
+ * date — if a recent reply exists, the whole thread is "recent" even if
+ * the original message is years old.
+ *
+ * Usage:
+ *   1. Select "diagnoseThread" from the function dropdown in Apps Script
+ *   2. Click Run
+ *   3. Look at the execution log for detailed message-by-message breakdown
+ *
+ * Edit SEARCH_TERM below to match the subject you're investigating.
+ */
+function diagnoseThread() {
+  var SEARCH_TERM = 'Saddlewood Logo'
+
+  var query = SEARCH_TERM
+  console.info('Diagnostic search: "' + query + '"')
+  console.info('========================================')
+
+  var threads = GmailApp.search(query, 0, 20)
+  console.info('Threads found: ' + threads.length)
+
+  for (var t = 0; t < threads.length; t++) {
+    var thread = threads[t]
+    var messages = thread.getMessages()
+    var labels = thread.getLabels().map(function (l) { return l.getName() })
+
+    console.info('')
+    console.info('--- Thread "' + thread.getFirstMessageSubject() + '" ---')
+    console.info('  Thread ID: ' + thread.getId())
+    console.info('  Message count: ' + messages.length)
+    console.info('  First message date: ' + messages[0].getDate().toISOString())
+    console.info('  Last message date: ' + thread.getLastMessageDate().toISOString())
+    console.info('  Labels: ' + (labels.length > 0 ? '[' + labels.join(', ') + ']' : '[none]'))
+
+    // Check if it matches ^sent
+    var sentMatch = GmailApp.search('^sent subject:"' + thread.getFirstMessageSubject() + '"', 0, 5)
+    console.info('  Matches ^sent: ' + (sentMatch.length > 0 ? 'YES' : 'NO'))
+
+    // Check if it matches older_than:1825d
+    var oldMatch = GmailApp.search('subject:"' + thread.getFirstMessageSubject() + '" older_than:1825d', 0, 5)
+    console.info('  Matches older_than:1825d: ' + (oldMatch.length > 0 ? 'YES' : 'NO'))
+
+    // Print every message in the thread
+    console.info('  Messages:')
+    for (var m = 0; m < messages.length; m++) {
+      var msg = messages[m]
+      var from = msg.getFrom()
+      var to = msg.getTo()
+      var date = msg.getDate().toISOString()
+      var isSent = from.indexOf(Session.getActiveUser().getEmail()) !== -1
+      console.info('    [' + (m + 1) + '] ' + date +
+        ' | from: ' + from +
+        ' | to: ' + to +
+        (isSent ? ' | [SENT]' : ' | [RECEIVED]'))
+    }
+
+    // Print why older_than might not match
+    var daysSinceLast = Math.floor((Date.now() - thread.getLastMessageDate().getTime()) / (1000 * 60 * 60 * 24))
+    console.info('  Days since last message: ' + daysSinceLast +
+      (daysSinceLast > 1825 ? ' (> 1825 — SHOULD match)' : ' (< 1825 — does NOT match older_than:1825d)'))
+  }
+
+  console.info('')
+  console.info('========================================')
+  console.info('Diagnostic complete.')
+
+  // Also run a broader query: ^sent without older_than to see total count
+  var allSent = GmailApp.search('^sent', 0, 1)
+  console.info('^sent total result count (sample): ' + allSent.length)
+
+  // Try the exact purge query but with a longer window
+  var sentOld730 = GmailApp.search('^sent older_than:730d', 0, 100)
+  var sentOld1825 = GmailApp.search('^sent older_than:1825d', 0, 100)
+  console.info('^sent older_than:730d: ' + sentOld730.length + ' (2 years)')
+  console.info('^sent older_than:1825d: ' + sentOld1825.length + ' (5 years)')
+}
