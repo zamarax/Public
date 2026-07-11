@@ -296,7 +296,8 @@ var USER_CONFIG = {
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `targetLabel` | `'^sent'` | Gmail search query identifying messages to purge. Use `^sent` for the built-in Sent mailbox (works with GmailApp.search). |
+| `targetQueries` | `['^sent', 'label:Sent Messages']` | Array of Gmail search queries. The script runs each query and deduplicates results. Use `^sent` for the built-in Sent mailbox, `label:Name` for custom labels. |
+| `targetLabel` | (deprecated) | Single-string version of `targetQueries`. If `targetQueries` is set, this is ignored. Kept for backwards compatibility. |
 | `batchPageSize` | `150` | Max threads retrieved per Gmail search call (max 500) |
 | `skipThreadsWithCustomLabels` | `true` | When `true`, threads with user-applied labels are skipped. This protects conversations you've filed under labels like "Important" or "Legal" from being trashed along with their Sent copy. Set to `false` to trash ALL old sent threads regardless of labels. |
 

@@ -402,29 +402,49 @@ function purgeMore() {
 function purge() {
   removePurgeMoreTriggers()
 
-  var search =
-    getConfig().targetLabel +
-    ' older_than:' + getConfig().deleteAfterDays + 'd'
+  var queries = getConfig().targetQueries || [getConfig().targetLabel]
+  queries = queries.filter(function (q) { return q }) // remove nulls/empty
 
   console.info('Mode: ' + (getConfig().dryRun ? 'DRY RUN (no deletions)' : 'LIVE'))
-  console.info('Query: ' + search)
 
-  var threads = GmailApp.search(search, 0, getConfig().batchPageSize)
+  // Search each query and deduplicate by thread ID
+  var seenIds = {}
+  var threads = []
+  var needsContinuation = false
+
+  for (var q = 0; q < queries.length; q++) {
+    var search = queries[q] + ' older_than:' + getConfig().deleteAfterDays + 'd'
+    console.info('Query: ' + search)
+    var pageThreads = GmailApp.search(search, 0, getConfig().batchPageSize)
+    console.info('  -> ' + pageThreads.length + ' threads matched')
+
+    if (pageThreads.length === getConfig().batchPageSize) {
+      needsContinuation = true
+    }
+
+    for (var i = 0; i < pageThreads.length; i++) {
+      var id = pageThreads[i].getId()
+      if (!seenIds[id]) {
+        seenIds[id] = true
+        threads.push(pageThreads[i])
+      }
+    }
+  }
 
   if (threads.length === 0) {
-    console.info('No threads matching: ' + search + ' — nothing to purge.')
+    console.info('No threads matching — nothing to purge.')
     return
   }
 
-  if (threads.length === getConfig().batchPageSize) {
+  if (needsContinuation) {
     console.log(
-      'Batch page (' + getConfig().batchPageSize + ') fully consumed. ' +
+      'Batch page (' + getConfig().batchPageSize + ') fully consumed for at least one query. ' +
       'Scheduling continuation in ' + getConfig().purgeMoreDelayMinutes + ' min.'
     )
     setPurgeMoreTrigger()
   }
 
-  console.info('Threads found: ' + threads.length)
+  console.info('Threads found (after dedup): ' + threads.length)
 
   var cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - getConfig().deleteAfterDays)
