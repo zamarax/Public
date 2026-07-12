@@ -524,9 +524,23 @@ function purge() {
 
     // Skip threads with custom labels if configured
     if (getConfig().skipThreadsWithCustomLabels && labels.length > 0) {
-      console.log('  Skipping entire thread (has custom labels): [' + labelNames + ']')
-      results.skipped += messages.length
-      continue
+      // Check if any label is in the allowLabels list
+      var allowed = false
+      var allowList = getConfig().allowLabels || []
+      for (var al = 0; al < labels.length; al++) {
+        if (allowList.indexOf(labels[al].getName()) !== -1) {
+          allowed = true
+          break
+        }
+      }
+
+      if (!allowed) {
+        console.log('  Skipping entire thread (protected labels): [' + labelNames + ']')
+        results.skipped += messages.length
+        continue
+      } else {
+        console.log('  Processing thread (label allowed): [' + labelNames + ']')
+      }
     }
 
     for (var m = 0; m < messages.length; m++) {

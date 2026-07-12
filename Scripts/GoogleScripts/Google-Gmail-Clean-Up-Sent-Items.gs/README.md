@@ -304,6 +304,7 @@ var USER_CONFIG = {
 | `deepSearch` | `true` | When `true`, also searches recent threads (without `older_than`) and checks each message individually. This catches old messages inside threads that have a recent reply. Set to `false` to only purge messages in threads where the ENTIRE thread is older than the cutoff. |
 | `batchPageSize` | `150` | Max threads retrieved per Gmail search call (max 500) |
 | `skipThreadsWithCustomLabels` | `true` | When `true`, messages in threads with user-applied labels are skipped entirely. This protects conversations you've filed under labels like "Important" or "Legal". Set to `false` to trash old sent messages regardless of thread labels. |
+| `allowLabels` | `[]` | Labels that are ALLOWED to be purged even when `skipThreadsWithCustomLabels` is `true`. List exact label names. Example: `allowLabels: ['Sent Messages']` allows purging threads with the "Sent Messages" custom label while still protecting threads with labels like "Personal/Important". |
 
 #### Summary Email
 

@@ -99,6 +99,16 @@ var DEFAULT_CONFIG = {
   // Set to false to trash ALL old sent threads regardless of labels.
   skipThreadsWithCustomLabels: true,
 
+  // Labels that are ALLOWED to be purged even when skipThreadsWithCustomLabels
+  // is true.  List exact label names (case-sensitive).
+  //
+  // Example: if you have a custom "Sent Messages" label that just mirrors
+  // your Sent folder, add it here so those threads are purged while
+  // threads with labels like "Personal/Important" are still protected.
+  //
+  // Set to an empty array to protect ALL labeled threads (default).
+  allowLabels: [],
+
   // -----------------------------------------------------------------
   // Summary email
   // -----------------------------------------------------------------
