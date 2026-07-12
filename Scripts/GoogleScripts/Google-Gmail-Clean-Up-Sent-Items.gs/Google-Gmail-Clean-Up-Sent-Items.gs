@@ -500,6 +500,22 @@ function purge() {
         pageStart += broadThreads.length
         moreResults = (broadThreads.length === deepPageSize)
       }
+      console.info('Deep search complete: ' + pageStart + ' total threads fetched')
+    }
+
+    // Diagnostic: search for threads with known old sent messages directly
+    // to verify they're being found
+    var diagSearch = '^sent older_than:1500d'
+    console.info('Diagnostic search: ' + diagSearch)
+    var diagThreads = GmailApp.search(diagSearch, 0, 50)
+    console.info('  -> ' + diagThreads.length + ' threads older than 1500d')
+    for (var dt = 0; dt < diagThreads.length; dt++) {
+      var dthread = diagThreads[dt]
+      var dmsgs = dthread.getMessages()
+      var dlabels = dthread.getLabels().map(function (l) { return l.getName() })
+      console.info('  DIAG: "' + dthread.getFirstMessageSubject() +
+        '" msgCount=' + dmsgs.length +
+        ' labels=[' + (dlabels.length ? dlabels.join(', ') : 'none') + ']')
     }
   }
 
@@ -570,6 +586,11 @@ function purge() {
       if (!msgDate || msgDate >= cutoff) {
         continue // too recent
       }
+
+      // Debug: this message is BOTH sent by us AND old enough to trash
+      console.log('  >> OLD SENT msg: date=' + msgDate.toISOString() +
+        ' from=' + msgFrom.substring(0, 40) +
+        ' subject="' + msg.getSubject() + '"')
 
       // Date range filters
       if (getConfig().dateRangeStart && msgDate < getConfig().dateRangeStart) {
