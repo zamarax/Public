@@ -497,7 +497,7 @@ function purge() {
             threads.push(broadThreads[j])
           }
         }
-        pageStart += deepThreads.length
+        pageStart += broadThreads.length
         moreResults = (broadThreads.length === deepPageSize)
       }
     }
