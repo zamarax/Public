@@ -49,8 +49,12 @@ var DEFAULT_CONFIG = {
   //
   // Common options:
   //   "^sent"                          — built-in Sent mailbox (Gmail API syntax)
-  //   "label:Sent-Messages"            — custom label named "Sent-Messages"
-  //   "label:Sent\\Messages"                         — nested label "Sent/Messages"
+  //   "label:\"Sent Messages\""        — custom label with spaces in the name
+  //   "label:Sent-Messages"            — custom label named "Sent-Messages" (no spaces)
+  //   "label:Sent\\Messages"           — nested label "Sent/Messages"
+  //
+  // IMPORTANT: Labels with spaces MUST be quoted: label:"My Label"
+  // Without quotes, Gmail reads label:Sent Messages as "label:Sent" + "Messages" keyword.
   //
   // By default, only the system Sent mailbox is targeted.
   // Add custom label queries in UserConfig.gs if you file sent emails
