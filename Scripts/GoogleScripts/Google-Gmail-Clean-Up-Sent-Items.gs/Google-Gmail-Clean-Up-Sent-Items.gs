@@ -481,17 +481,24 @@ function purge() {
   // We check each message individually inside the loop.
   if (getConfig().deepSearch) {
     var newerBase = 'newer_than:' + getConfig().deleteAfterDays + 'd'
+    var deepPageSize = 500
     for (var q2 = 0; q2 < queries.length; q2++) {
       var broadSearch = queries[q2] + ' ' + newerBase
       console.info('Deep search: ' + broadSearch)
-      var broadThreads = GmailApp.search(broadSearch, 0, getConfig().batchPageSize)
-      console.info('  -> ' + broadThreads.length + ' threads found')
-      for (var j = 0; j < broadThreads.length; j++) {
-        var bid = broadThreads[j].getId()
-        if (!seenIds[bid]) {
-          seenIds[bid] = true
-          threads.push(broadThreads[j])
+      var moreResults = true
+      var pageStart = 0
+      while (moreResults) {
+        var broadThreads = GmailApp.search(broadSearch, pageStart, deepPageSize)
+        console.info('  -> page ' + (pageStart / deepPageSize + 1) + ': ' + broadThreads.length + ' threads')
+        for (var j = 0; j < broadThreads.length; j++) {
+          var bid = broadThreads[j].getId()
+          if (!seenIds[bid]) {
+            seenIds[bid] = true
+            threads.push(broadThreads[j])
+          }
         }
+        pageStart += deepThreads.length
+        moreResults = (broadThreads.length === deepPageSize)
       }
     }
   }
