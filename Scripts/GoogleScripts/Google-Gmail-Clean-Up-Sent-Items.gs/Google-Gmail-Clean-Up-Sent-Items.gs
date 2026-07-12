@@ -239,6 +239,12 @@ function syncFromGitHub() {
   var project = JSON.parse(getResp.getContentText())
   var files = project.files || []
 
+  // Debug: list all files in the project
+  console.info('Apps Script project files:')
+  for (var df = 0; df < files.length; df++) {
+    console.info('  [' + files[df].type + '] "' + files[df].name + '" (source length: ' + (files[df].source || '').length + ')')
+  }
+
   // CRITICAL: Find and preserve the appsscript.json manifest file.
   // The updateContent API REPLACES ALL files — if we don't include the
   // manifest, the OAuth scopes get wiped and the script locks itself out.
