@@ -411,8 +411,15 @@ function purgeMore() {
 function purge() {
   removePurgeMoreTriggers()
 
-  var queries = getConfig().targetQueries || [getConfig().targetLabel]
+  var queries = getConfig().targetQueries
+  if (!queries) {
+    queries = getConfig().targetLabel ? [getConfig().targetLabel] : ['^sent']
+  }
   queries = queries.filter(function (q) { return q })
+
+  console.info('Config targetQueries: ' + JSON.stringify(getConfig().targetQueries))
+  console.info('Config targetLabel: ' + getConfig().targetLabel)
+  console.info('Resolved queries: ' + JSON.stringify(queries))
 
   console.info('Mode: ' + (getConfig().dryRun ? 'DRY RUN (no deletions)' : 'LIVE'))
 
