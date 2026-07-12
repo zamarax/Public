@@ -391,29 +391,58 @@ function purgeMore() {
 /**
  * Main purge function.
  *
- * Flow:
- *   1. Builds a Gmail search query from getConfig().
- *   2. Retrieves a page of threads.
- *   3. Filters by date range, cutoff, and max-deletes cap.
- *   4. Moves matching threads to trash (or logs them in dry-run mode).
- *   5. Sends a summary email listing deleted/simulated threads.
- *   6. Schedules a continuation trigger if more batches remain.
+ * Operates at the MESSAGE level, not the thread level.  Gmail's
+ * older_than: operator works on a thread's last message date, so a
+ * thread with a recent reply won't match even if it contains very old
+ * messages.  Instead, this function:
+ *
+ *   1. Searches ^sent (optionally with custom label queries too)
+ *      WITHOUT older_than — just retrieves sent threads.
+ *   2. Iterates every message in every thread.
+ *   3. Trashes individual messages that are:
+ *        - sent by the account owner (from == this account)
+ *        - older than deleteAfterDays
+ *        - within the optional date range
+ *   4. Optionally skips messages in threads with custom labels.
+ *
+ * This means a thread from 2020 with a 2021 reply will still have
+ * its 2020 messages trashed while leaving the 2021 reply intact.
  */
 function purge() {
   removePurgeMoreTriggers()
 
   var queries = getConfig().targetQueries || [getConfig().targetLabel]
-  queries = queries.filter(function (q) { return q }) // remove nulls/empty
+  queries = queries.filter(function (q) { return q })
 
   console.info('Mode: ' + (getConfig().dryRun ? 'DRY RUN (no deletions)' : 'LIVE'))
 
-  // Search each query and deduplicate by thread ID
+  var myEmail = Session.getActiveUser().getEmail().toLowerCase()
+  var cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - getConfig().deleteAfterDays)
+  console.info('Cutoff date: ' + cutoff.toISOString())
+
+  if (getConfig().dateRangeStart || getConfig().dateRangeEnd) {
+    console.info(
+      'Date range filter: ' +
+      (getConfig().dateRangeStart ? getConfig().dateRangeStart.toISOString() : '*') +
+      ' to ' +
+      (getConfig().dateRangeEnd ? getConfig().dateRangeEnd.toISOString() : '*')
+    )
+  }
+
+  // Build search queries WITHOUT older_than — we filter per-message
+  var searchBase = 'older_than:' + getConfig().deleteAfterDays + 'd'
+
   var seenIds = {}
   var threads = []
   var needsContinuation = false
 
   for (var q = 0; q < queries.length; q++) {
-    var search = queries[q] + ' older_than:' + getConfig().deleteAfterDays + 'd'
+    // Append older_than so we only pull threads that HAVE old messages.
+    // Gmail's older_than filters on thread last-message date, so this
+    // won't miss threads like "Saddlewood Logo" (last msg 2021-08-13).
+    // We then re-check each message individually inside the loop.
+    var search = queries[q] + ' ' + searchBase
     console.info('Query: ' + search)
     var pageThreads = GmailApp.search(search, 0, getConfig().batchPageSize)
     console.info('  -> ' + pageThreads.length + ' threads matched')
@@ -427,6 +456,29 @@ function purge() {
       if (!seenIds[id]) {
         seenIds[id] = true
         threads.push(pageThreads[i])
+      }
+    }
+  }
+
+  // ALSO search ^sent newer_than:Nd to catch threads like "Saddlewood Logo"
+  // where the thread's last message is recent but contains old sent messages.
+  // Together with older_than, newer_than covers ALL sent threads:
+  //   older_than:Nd  = threads where last message is older than N days
+  //   newer_than:Nd  = threads where last message is newer than N days
+  // We check each message individually inside the loop.
+  if (getConfig().deepSearch) {
+    var newerBase = 'newer_than:' + getConfig().deleteAfterDays + 'd'
+    for (var q2 = 0; q2 < queries.length; q2++) {
+      var broadSearch = queries[q2] + ' ' + newerBase
+      console.info('Deep search: ' + broadSearch)
+      var broadThreads = GmailApp.search(broadSearch, 0, getConfig().batchPageSize)
+      console.info('  -> ' + broadThreads.length + ' threads found')
+      for (var j = 0; j < broadThreads.length; j++) {
+        var bid = broadThreads[j].getId()
+        if (!seenIds[bid]) {
+          seenIds[bid] = true
+          threads.push(broadThreads[j])
+        }
       }
     }
   }
@@ -446,19 +498,6 @@ function purge() {
 
   console.info('Threads found (after dedup): ' + threads.length)
 
-  var cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - getConfig().deleteAfterDays)
-  console.info('Cutoff date: ' + cutoff.toISOString())
-
-  if (getConfig().dateRangeStart || getConfig().dateRangeEnd) {
-    console.info(
-      'Date range filter: ' +
-      (getConfig().dateRangeStart ? getConfig().dateRangeStart.toISOString() : '*') +
-      ' to ' +
-      (getConfig().dateRangeEnd ? getConfig().dateRangeEnd.toISOString() : '*')
-    )
-  }
-
   var results = {
     deleted: [],
     skipped: 0,
@@ -466,76 +505,76 @@ function purge() {
     capReached: false
   }
 
-  for (var i = 0; i < threads.length; i++) {
-    var thread = threads[i]
-    var lastDate = thread.getLastMessageDate()
+  for (var t = 0; t < threads.length; t++) {
+    var thread = threads[t]
     var messages = thread.getMessages()
-    var firstDate = messages.length > 0 ? messages[0].getDate() : null
-
-    // Log thread details for visibility
     var labels = thread.getLabels()
     var labelNames = labels.map(function (l) { return l.getName() }).join(', ')
+
     console.info('Thread: "' + thread.getFirstMessageSubject() +
-      '" | firstMsg=' + (firstDate ? firstDate.toISOString() : 'n/a') +
-      ' lastMsg=' + (lastDate ? lastDate.toISOString() : 'n/a') +
-      ' cutoff=' + cutoff.toISOString() +
+      '" | messages=' + messages.length +
       (labelNames ? ' labels=[' + labelNames + ']' : ' labels=[none]'))
 
-    // Use the FIRST message date for the cutoff comparison (when the email
-    // was originally sent), not the last message date (which could be a reply).
-    var checkDate = firstDate || lastDate
-
-    if (!checkDate || checkDate >= cutoff) {
-      results.skipped++
-      continue
-    }
-
-    if (getConfig().dateRangeStart && checkDate < getConfig().dateRangeStart) {
-      results.skipped++
-      continue
-    }
-
-    if (getConfig().dateRangeEnd && checkDate > getConfig().dateRangeEnd) {
-      results.skipped++
-      continue
-    }
-
-    // Skip threads that have user-applied labels (e.g. "Important", "Legal").
-    // These are conversations the user deliberately organized — the Sent
-    // copy lives inside the thread, but trashing the whole thread would
-    // also remove the filed messages.
+    // Skip threads with custom labels if configured
     if (getConfig().skipThreadsWithCustomLabels && labels.length > 0) {
-      console.log('Skipping (has custom labels): "' + thread.getFirstMessageSubject() + '" [' + labelNames + ']')
-      results.skipped++
+      console.log('  Skipping entire thread (has custom labels): [' + labelNames + ']')
+      results.skipped += messages.length
       continue
     }
 
-    if (getConfig().maxDeletesPerRun &&
-        getConfig().maxDeletesPerRun > 0 &&
-        results.deleted.length >= getConfig().maxDeletesPerRun) {
-      results.capReached = true
-      continue
-    }
+    for (var m = 0; m < messages.length; m++) {
+      var msg = messages[m]
+      var msgDate = msg.getDate()
+      var msgFrom = msg.getFrom()
 
-    var info = {
-      subject: thread.getFirstMessageSubject(),
-      date: checkDate
-    }
+      // Only trash messages sent by this account
+      if (msgFrom.toLowerCase().indexOf(myEmail) === -1) {
+        continue // not our sent message, skip silently
+      }
 
-    if (getConfig().dryRun) {
-      console.log(
-        '[DRY RUN] Would delete: "' + info.subject +
-        '" (' + info.date.toISOString() + ')'
-      )
-      results.deleted.push(info)
-    } else {
-      try {
-        thread.moveToTrash()
+      // Check age
+      if (!msgDate || msgDate >= cutoff) {
+        continue // too recent
+      }
+
+      // Date range filters
+      if (getConfig().dateRangeStart && msgDate < getConfig().dateRangeStart) {
+        results.skipped++
+        continue
+      }
+      if (getConfig().dateRangeEnd && msgDate > getConfig().dateRangeEnd) {
+        results.skipped++
+        continue
+      }
+
+      // Deletion cap
+      if (getConfig().maxDeletesPerRun &&
+          getConfig().maxDeletesPerRun > 0 &&
+          results.deleted.length >= getConfig().maxDeletesPerRun) {
+        results.capReached = true
+        continue
+      }
+
+      var info = {
+        subject: msg.getSubject(),
+        date: msgDate,
+        to: msg.getTo()
+      }
+
+      if (getConfig().dryRun) {
+        console.log('  [DRY RUN] Would trash message: "' + info.subject +
+          '" (' + info.date.toISOString() + ' to: ' + info.to + ')')
         results.deleted.push(info)
-      } catch (e) {
-        console.warn('Failed to trash thread ' + thread.getId() + ': ' + e.message)
-        info.error = e.message
-        results.failed.push(info)
+      } else {
+        try {
+          msg.moveToTrash()
+          results.deleted.push(info)
+          console.log('  Trashed: "' + info.subject + '" (' + info.date.toISOString() + ')')
+        } catch (e) {
+          console.warn('  Failed to trash message: ' + e.message)
+          info.error = e.message
+          results.failed.push(info)
+        }
       }
     }
   }
@@ -558,8 +597,8 @@ function purge() {
 // ===========================================================================
 
 /**
- * Sends a summary email listing the subjects and dates of all threads that
- * were deleted (or would have been deleted in dry-run mode).
+ * Sends a summary email listing the subjects and dates of all messages
+ * that were deleted (or would have been deleted in dry-run mode).
  *
  * @param {Object} results  Result object from purge().
  */
@@ -568,17 +607,17 @@ function sendSummary(results) {
   var count = results.deleted.length
   var capNote = results.capReached
     ? '\n\nNote: The per-run deletion cap (' + getConfig().maxDeletesPerRun +
-      ') was reached. Remaining threads will be processed in subsequent runs.'
+      ') was reached. Remaining messages will be processed in subsequent runs.'
     : ''
 
   var body = 'Gmail Clean-Up — Sent Items Purge Report\n'
   body += '=========================================\n\n'
   body += 'Mode: ' + (getConfig().dryRun ? 'DRY RUN (simulation — nothing was deleted)' : 'LIVE') + '\n'
   body += 'Date: ' + new Date().toISOString() + '\n'
-  body += 'Threads ' + (getConfig().dryRun ? 'simulated' : 'deleted') + ': ' + count + '\n'
-  body += 'Threads skipped: ' + results.skipped + '\n'
+  body += 'Messages ' + (getConfig().dryRun ? 'simulated' : 'deleted') + ': ' + count + '\n'
+  body += 'Messages skipped: ' + results.skipped + '\n'
   if (results.failed.length > 0) {
-    body += 'Threads failed: ' + results.failed.length + '\n'
+    body += 'Messages failed: ' + results.failed.length + '\n'
   }
   body += capNote + '\n'
   body += '\n-----------------------------------------\n'
@@ -588,7 +627,11 @@ function sendSummary(results) {
   for (var i = 0; i < results.deleted.length; i++) {
     var item = results.deleted[i]
     body += (i + 1) + '. "' + item.subject + '"\n'
-    body += '   Date: ' + item.date.toISOString() + '\n\n'
+    body += '   Date: ' + item.date.toISOString() + '\n'
+    if (item.to) {
+      body += '   To: ' + item.to + '\n'
+    }
+    body += '\n'
   }
 
   if (results.failed.length > 0) {
@@ -611,90 +654,4 @@ function sendSummary(results) {
   })
 
   console.info('Summary email sent to ' + getConfig().summaryEmailTo)
-}
-
-// ===========================================================================
-// Diagnostics
-// ===========================================================================
-
-/**
- * Diagnostic function: searches for threads matching a subject keyword and
- * prints every message in each thread with its date, sender, and recipient.
- *
- * This helps understand why a thread is NOT matching the purge query.
- * For example, Gmail's older_than: operator uses the thread's LAST message
- * date — if a recent reply exists, the whole thread is "recent" even if
- * the original message is years old.
- *
- * Usage:
- *   1. Select "diagnoseThread" from the function dropdown in Apps Script
- *   2. Click Run
- *   3. Look at the execution log for detailed message-by-message breakdown
- *
- * Edit SEARCH_TERM below to match the subject you're investigating.
- */
-function diagnoseThread() {
-  var SEARCH_TERM = 'Saddlewood Logo'
-
-  var query = SEARCH_TERM
-  console.info('Diagnostic search: "' + query + '"')
-  console.info('========================================')
-
-  var threads = GmailApp.search(query, 0, 20)
-  console.info('Threads found: ' + threads.length)
-
-  for (var t = 0; t < threads.length; t++) {
-    var thread = threads[t]
-    var messages = thread.getMessages()
-    var labels = thread.getLabels().map(function (l) { return l.getName() })
-
-    console.info('')
-    console.info('--- Thread "' + thread.getFirstMessageSubject() + '" ---')
-    console.info('  Thread ID: ' + thread.getId())
-    console.info('  Message count: ' + messages.length)
-    console.info('  First message date: ' + messages[0].getDate().toISOString())
-    console.info('  Last message date: ' + thread.getLastMessageDate().toISOString())
-    console.info('  Labels: ' + (labels.length > 0 ? '[' + labels.join(', ') + ']' : '[none]'))
-
-    // Check if it matches ^sent
-    var sentMatch = GmailApp.search('^sent subject:"' + thread.getFirstMessageSubject() + '"', 0, 5)
-    console.info('  Matches ^sent: ' + (sentMatch.length > 0 ? 'YES' : 'NO'))
-
-    // Check if it matches older_than:1825d
-    var oldMatch = GmailApp.search('subject:"' + thread.getFirstMessageSubject() + '" older_than:1825d', 0, 5)
-    console.info('  Matches older_than:1825d: ' + (oldMatch.length > 0 ? 'YES' : 'NO'))
-
-    // Print every message in the thread
-    console.info('  Messages:')
-    for (var m = 0; m < messages.length; m++) {
-      var msg = messages[m]
-      var from = msg.getFrom()
-      var to = msg.getTo()
-      var date = msg.getDate().toISOString()
-      var isSent = from.indexOf(Session.getActiveUser().getEmail()) !== -1
-      console.info('    [' + (m + 1) + '] ' + date +
-        ' | from: ' + from +
-        ' | to: ' + to +
-        (isSent ? ' | [SENT]' : ' | [RECEIVED]'))
-    }
-
-    // Print why older_than might not match
-    var daysSinceLast = Math.floor((Date.now() - thread.getLastMessageDate().getTime()) / (1000 * 60 * 60 * 24))
-    console.info('  Days since last message: ' + daysSinceLast +
-      (daysSinceLast > 1825 ? ' (> 1825 — SHOULD match)' : ' (< 1825 — does NOT match older_than:1825d)'))
-  }
-
-  console.info('')
-  console.info('========================================')
-  console.info('Diagnostic complete.')
-
-  // Also run a broader query: ^sent without older_than to see total count
-  var allSent = GmailApp.search('^sent', 0, 1)
-  console.info('^sent total result count (sample): ' + allSent.length)
-
-  // Try the exact purge query but with a longer window
-  var sentOld730 = GmailApp.search('^sent older_than:730d', 0, 100)
-  var sentOld1825 = GmailApp.search('^sent older_than:1825d', 0, 100)
-  console.info('^sent older_than:730d: ' + sentOld730.length + ' (2 years)')
-  console.info('^sent older_than:1825d: ' + sentOld1825.length + ' (5 years)')
 }

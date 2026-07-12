@@ -49,20 +49,39 @@ var DEFAULT_CONFIG = {
   //
   // Common options:
   //   "^sent"                          — built-in Sent mailbox (Gmail API syntax)
-  //   "in:sent"                        — Gmail UI syntax (may not work with GmailApp.search)
   //   "label:Sent-Messages"            — custom label named "Sent-Messages"
-  //   "label:Sent\\Messages"                          — nested label "Sent/Messages"
+  //   "label:Sent\\Messages"                         — nested label "Sent/Messages"
   //
-  // The default targets BOTH the system Sent mailbox and a common custom
-  // label "Sent Messages" that Gmail creates for some users._threads
-  // filed under custom labels are only found via label: searches, not ^sent.
+  // By default, only the system Sent mailbox is targeted.
+  // Add custom label queries in UserConfig.gs if you file sent emails
+  // under custom labels.
   //
   targetQueries: [
-    '^sent',
-    'label:Sent Messages'
+    '^sent'
   ],
 
   batchPageSize: 150,
+
+  // -----------------------------------------------------------------
+  // Deep search — find old messages inside recent threads
+  // -----------------------------------------------------------------
+
+  // When true, the script also searches RECENT sent threads (without
+  // older_than) and checks each message individually.  This catches
+  // cases like a thread from 2020 that received a reply in 2021 —
+  // Gmail considers the thread "recent" (last message 2021) so
+  // "older_than:1825d" won't match it, but the 2020 messages are
+  // still old enough to purge.
+  //
+  // How it works:
+  //   - Primary search: ^sent older_than:Nd (finds old threads)
+  //   - Deep search:    ^sent newer_than:Nd (finds recent threads
+  //     that may contain old messages)
+  //   - Messages are checked individually regardless of thread age
+  //
+  // Set to false if you only want to purge messages in threads where
+  // the ENTIRE thread is older than the cutoff.
+  deepSearch: true,
 
   // -----------------------------------------------------------------
   // Cross-label protection

@@ -1,16 +1,19 @@
 # Google-Gmail-Clean-Up-Sent-Items
 
-Automatically purges sent email messages older than a configurable number of days.
+Automatically purges old sent email **messages** (individual messages, not whole threads) that are older than a configurable number of days.
 
 ## Features
 
+- **Message-level deletion** — trashes individual old sent messages within a thread, even if the thread has a recent reply. A 2020 message in a thread with a 2021 reply gets trashed while the 2021 reply stays intact.
+- **Deep search** — searches recent threads too, not just old ones, to find old messages hiding inside threads with recent activity
 - **Configurable trigger schedule** — run daily, hourly, weekly, or every N minutes at a specific time
 - **Deletion caps** — limit the number of emails deleted per run
-- **Date-range filters** — only target threads within a specific date window
+- **Date-range filters** — only target messages within a specific date window
 - **Post-execution summary email** — lists all deleted email subjects and dates after each run
 - **Dry-run / simulation mode** — log exactly what would be deleted without actually trashing anything
 - **Batch processing** — automatically continues across runs when large result sets are found
-- **Cross-label protection** — skips threads you've filed under custom labels (e.g. "Important", "Legal") so replies never get trashed along with conversations you deliberately organized
+- **Cross-label protection** — skips messages in threads you've filed under custom labels (e.g. "Important", "Legal") so conversations you deliberately organized are never touched
+- **Multi-label search** — target the system Sent mailbox, custom labels, or both
 - **Auto-sync from GitHub** — the script pulls its own code from GitHub on a schedule, no tools or tokens needed
 - **Per-user config** — your personal settings live in a separate file that is NEVER overwritten by sync
 
@@ -296,10 +299,11 @@ var USER_CONFIG = {
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `targetQueries` | `['^sent', 'label:Sent Messages']` | Array of Gmail search queries. The script runs each query and deduplicates results. Use `^sent` for the built-in Sent mailbox, `label:Name` for custom labels. |
+| `targetQueries` | `['^sent']` | Array of Gmail search queries. The script runs each query and deduplicates results. Use `^sent` for the built-in Sent mailbox, `label:Name` for custom labels. Add custom labels in UserConfig.gs if you file sent emails under them. |
 | `targetLabel` | (deprecated) | Single-string version of `targetQueries`. If `targetQueries` is set, this is ignored. Kept for backwards compatibility. |
+| `deepSearch` | `true` | When `true`, also searches recent threads (without `older_than`) and checks each message individually. This catches old messages inside threads that have a recent reply. Set to `false` to only purge messages in threads where the ENTIRE thread is older than the cutoff. |
 | `batchPageSize` | `150` | Max threads retrieved per Gmail search call (max 500) |
-| `skipThreadsWithCustomLabels` | `true` | When `true`, threads with user-applied labels are skipped. This protects conversations you've filed under labels like "Important" or "Legal" from being trashed along with their Sent copy. Set to `false` to trash ALL old sent threads regardless of labels. |
+| `skipThreadsWithCustomLabels` | `true` | When `true`, messages in threads with user-applied labels are skipped entirely. This protects conversations you've filed under labels like "Important" or "Legal". Set to `false` to trash old sent messages regardless of thread labels. |
 
 #### Summary Email
 
