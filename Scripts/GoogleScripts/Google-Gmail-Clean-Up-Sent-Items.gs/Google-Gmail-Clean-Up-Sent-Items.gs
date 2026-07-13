@@ -643,7 +643,12 @@ function purge() {
   )
 
   if (getConfig().sendSummaryEmail && results.deleted.length > 0) {
-    sendSummary(results)
+    try {
+      sendSummary(results)
+    } catch (emailErr) {
+      console.warn('Failed to send summary email: ' + emailErr.message)
+      console.warn('If this is a permissions error, run installAllTriggers in the Apps Script editor to re-authorize with the script.send_mail scope.')
+    }
   }
 }
 
