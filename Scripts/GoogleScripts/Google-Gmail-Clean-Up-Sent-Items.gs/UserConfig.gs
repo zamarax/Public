@@ -37,7 +37,9 @@ var USER_CONFIG = {
   // Search multiple labels/queries (default: system Sent mailbox only)
   // Add custom label queries here if you file sent emails under custom labels
   // NOTE: Labels with spaces MUST be quoted: label:"My Label"
-  targetQueries: ['^sent'],
+  // Using "from:me" instead of "^sent" because "from:me"
+  // catches IMAP-uploaded sent messages that ^sent misses.
+  targetQueries: ['from:me'],
 
   // Deep search: also check recent threads for old individual messages
   // (default: true). Set to false to only purge messages in threads where
