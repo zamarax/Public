@@ -37,7 +37,7 @@ var USER_CONFIG = {
   // Search multiple labels/queries (default: system Sent mailbox only)
   // Add custom label queries here if you file sent emails under custom labels
   // NOTE: Labels with spaces MUST be quoted: label:"My Label"
-  targetQueries: ['^sent', 'label:"Sent Messages"'],
+  targetQueries: ['^sent'],
 
   // Deep search: also check recent threads for old individual messages
   // (default: true). Set to false to only purge messages in threads where
@@ -49,7 +49,7 @@ var USER_CONFIG = {
 
   // Allow purging threads with specific labels even when skipThreadsWithCustomLabels is true
   // Add label names that mirror your Sent folder but are technically custom labels
-  allowLabels: ['Sent Messages'],
+  // allowLabels: ['Sent Messages'],
 
   // Turn on dry-run mode for testing (nothing gets deleted)
   dryRun: true,
