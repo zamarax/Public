@@ -37,8 +37,11 @@ var USER_CONFIG = {
   // Search multiple labels/queries (default: system Sent mailbox only)
   // Add custom label queries here if you file sent emails under custom labels
   // NOTE: Labels with spaces MUST be quoted: label:"My Label"
-  // Using "from:me" instead of "^sent" because "from:me"
-  // catches IMAP-uploaded sent messages that ^sent misses.
+  //
+  // Using "from:me" instead of "^sent" because "from:me" catches IMAP-uploaded
+  // sent messages that ^sent misses (e.g. messages uploaded via Outlook/Apple Mail).
+  // Thread-level protection is handled by skipThreadsWithCustomLabels: any thread
+  // with a user-applied label is skipped unless that label is in allowLabels.
   targetQueries: ['from:me'],
 
   // Deep search: also check recent threads for old individual messages

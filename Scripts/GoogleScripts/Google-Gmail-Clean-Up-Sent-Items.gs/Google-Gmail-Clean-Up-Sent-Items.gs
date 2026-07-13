@@ -551,7 +551,12 @@ function purge() {
       '" | messages=' + messages.length +
       (labelNames ? ' labels=[' + labelNames + ']' : ' labels=[none]'))
 
-    // Skip threads with custom labels if configured
+    // Skip threads with custom labels if configured.
+    // This is the primary protection when using "from:me" as the search query:
+    // any thread with a user-applied label (e.g. Personal/Rentals, OPSEU292) is
+    // skipped entirely, ensuring sent messages you deliberately filed under a
+    // custom label are never purged.  Only unlabeled sent threads (or threads
+    // whose labels are all in allowLabels) are eligible for processing.
     if (getConfig().skipThreadsWithCustomLabels && labels.length > 0) {
       // Check if any label is in the allowLabels list
       var allowed = false
