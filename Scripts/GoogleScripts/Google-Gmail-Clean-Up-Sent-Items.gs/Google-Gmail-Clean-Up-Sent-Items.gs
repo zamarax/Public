@@ -144,9 +144,26 @@ function installPurgeTrigger() {
       triggerBuilder.everyHours(t.value)
       break
     case 'weeks':
+      var weekdayMap = {
+        SUNDAY: ScriptApp.WeekDay.SUNDAY,
+        MONDAY: ScriptApp.WeekDay.MONDAY,
+        TUESDAY: ScriptApp.WeekDay.TUESDAY,
+        WEDNESDAY: ScriptApp.WeekDay.WEDNESDAY,
+        THURSDAY: ScriptApp.WeekDay.THURSDAY,
+        FRIDAY: ScriptApp.WeekDay.FRIDAY,
+        SATURDAY: ScriptApp.WeekDay.SATURDAY
+      }
+      var weekdayName = (t.weekday || 'MONDAY').toUpperCase()
+      var weekdayEnum = weekdayMap[weekdayName]
+      if (!weekdayEnum) {
+        throw new Error(
+          'Unknown weekday: ' + t.weekday +
+          '. Use the full English day name, e.g. "WEDNESDAY" or "Wednesday".'
+        )
+      }
       triggerBuilder
         .everyWeeks(t.value)
-        .onWeekDay(ScriptApp.WeekDay.MONDAY)
+        .onWeekDay(weekdayEnum)
         .atHour(t.hour || 0)
         .nearMinute(t.minute || 0)
       break
@@ -161,10 +178,12 @@ function installPurgeTrigger() {
   }
 
   triggerBuilder.create()
-  console.info('Purge trigger installed: every ' + t.value + ' ' + t.type +
-    (t.type === 'days' || t.type === 'weeks'
-      ? ' at ' + (t.hour || 0) + ':' + String(t.minute || 0).padStart(2, '0')
-      : ''))
+  var summary = 'every ' + t.value + ' ' + t.type
+  if (t.type === 'weeks' && t.weekday) summary += ' on ' + t.weekday
+  if (t.type === 'days' || t.type === 'weeks') {
+    summary += ' at ' + (t.hour || 0) + ':' + String(t.minute || 0).padStart(2, '0')
+  }
+  console.info('Purge trigger installed: ' + summary)
 }
 
 /**

@@ -134,10 +134,14 @@ var DEFAULT_CONFIG = {
   // -----------------------------------------------------------------
 
   trigger: {
-    type: 'days',
-    value: 1,
-    hour: 2,
-    minute: 0
+    type: 'days',        // 'days', 'hours', 'weeks', or 'minutes'
+    value: 1,            // how often to run
+    hour: 2,             // hour of day, 0-23 (only 'days' and 'weeks')
+    minute: 0            // minute past the hour, 0-59 (only 'days' and 'weeks')
+
+    // weekday: 'WEDNESDAY'  // only for 'weeks' — full English day name,
+                            // case-insensitive (SUNDAY..SATURDAY).
+                            // Omit to default to Monday.
   },
 
   purgeMoreDelayMinutes: 2

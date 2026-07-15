@@ -280,14 +280,16 @@ The schedule block looks like this and lives inside `UserConfig.gs`:
 
 ```javascript
 trigger: {
-  type:  'days',   // how to count: 'days', 'hours', 'weeks', or 'minutes'
-  value: 1,        // how many of the above to wait between runs
-  hour:  2,        // only used for 'days' and 'weeks' — the hour of the day (0 to 23)
-  minute: 0        // only used for 'days' and 'weeks' — the minute past the hour (0 to 59)
+  type:    'days',    // how to count: 'days', 'hours', 'weeks', or 'minutes'
+  value:   1,         // how many of the above to wait between runs
+  hour:    2,         // 'days'/'weeks' only — hour of the day (0 to 23, 24-hour clock)
+  minute:  0,         // 'days'/'weeks' only — minute past the hour (0 to 59)
+  weekday: 'MONDAY'   // 'weeks' only — full day name (SUNDAY..SATURDAY), case-insensitive.
+                      //            Omit to default to Monday.
 }
 ```
 
-Think of it as filling in a sentence: **"Run every `[value]` `[type]`, at `[hour]`:`[minute]`"** (the time only applies for days/weeks).
+Think of it as filling in a sentence: **"Run every `[value]` `[type]` (on `[weekday]`, for weeks), at `[hour]`:`[minute]`"** (the time, and the weekday, only apply for days/weeks).
 
 ### Pick one of these four recipes — copy it into UserConfig.gs
 
@@ -309,9 +311,19 @@ trigger: { type: 'hours', value: 12 },
 
 ```javascript
 trigger: { type: 'weeks', value: 1, hour: 3, minute: 30 },
+//                                                   weekday defaults to Monday
 ```
 
-**D) Every 30 minutes (for testing — not recommended long-term)**
+**D) Every Wednesday evening at 8 PM** (a good example of picking both the day and a non-morning time)
+
+```javascript
+trigger: { type: 'weeks', value: 1, weekday: 'WEDNESDAY', hour: 20, minute: 0 },
+//                                                  24-hour clock: 20 = 8 PM
+```
+
+> **24-hour clock:** `20` means **8 in the evening**. For other evenings use `17` (5 PM), `18` (6 PM), `22` (10 PM), etc. The day name is any full English weekday — `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, `SATURDAY` — and is case-insensitive, so `'Wednesday'` and `'wednesday'` work too. `value: 1` runs every week; `value: 2` runs every other week.
+
+**E) Every 30 minutes (for testing — not recommended long-term)**
 
 ```javascript
 trigger: { type: 'minutes', value: 30 },
@@ -426,6 +438,7 @@ The default `UserConfig.gs` uses `['from:me']` for this reason. Switch to `['^se
 | `trigger.value` | `1` | How often (e.g. `1` = every 1 day, `2` = every 2 hours) |
 | `trigger.hour` | `2` | Hour of day (0-23) — only for `'days'` or `'weeks'` |
 | `trigger.minute` | `0` | Minute past the hour (0-59) — only for `'days'` or `'weeks'` |
+| `trigger.weekday` | (Monday) | Full English day name (`'SUNDAY'`..`'SATURDAY'`, case-insensitive) — only for `'weeks'`. Omit to default to Monday |
 | `purgeMoreDelayMinutes` | `2` | Minutes before batch continuation trigger fires |
 
 > See the **"Adjusting Triggers"** section above for a beginner-friendly walkthrough on changing these.
