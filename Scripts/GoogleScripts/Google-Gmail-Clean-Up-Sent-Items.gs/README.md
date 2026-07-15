@@ -30,13 +30,12 @@ Automatically purges old sent email **messages** (individual messages, not whole
 ## How Auto-Sync Works
 
 ```
-Edit .gs or Config.gs → push to Personal (private) repo → GitHub Actions copies .gs + Config.gs + appsscript.json to Public repo
-                                                                                    ↓
-                                                          Google Apps Script pulls Google-Gmail-Clean-Up-Sent-Items.gs + Config.gs every 6 hours
-                                                          UserConfig.gs is NEVER touched — your settings are safe
+The maintainer pushes code to GitHub  →  a copy lands in THIS public repo  →  YOUR copy of the script in Google Apps Script pulls updates on a schedule
+                                                                        ↑
+                                                              UserConfig.gs is NEVER touched — your settings are safe
 ```
 
-No clasp, no OAuth, no secrets. The script fetches its own code from a public GitHub raw URL and updates itself via the Apps Script API.
+You don't need to clone the repo, run any CLI tools, or hold any tokens. Once set up, the script inside your Apps Script project fetches its own latest code from this public repo's raw URL every few hours and updates itself via the Apps Script API. Your personal settings in `UserConfig.gs` are never overwritten.
 
 ## Setup (Step by Step)
 
@@ -44,33 +43,7 @@ Follow these steps **in order**. Each step must be done before the next one.
 
 ---
 
-### Step 1 — Create a GitHub Personal Access Token
-
-You only do this **once**. This token lets GitHub Actions copy files from your private repo to your public repo automatically.
-
-1. Open this link in your browser: https://github.com/settings/tokens
-2. Click **Generate new token** → **Generate new token (classic)**
-3. In the **Note** field, type: `Public repo sync`
-4. Under **Select scopes**, check the **repo** box (this gives full repo access)
-5. Click **Generate token** at the bottom
-6. **Copy the token** that appears (starts with `ghp_`). You will NOT be able to see it again after leaving the page. Paste it somewhere safe temporarily.
-
----
-
-### Step 2 — Add the Token to Your Private Repo as a Secret
-
-You only do this **once**.
-
-1. Open this link: https://github.com/zamarax/Personal/settings/secrets/actions
-2. Click **New repository secret**
-3. In the **Name** field, type: `PUBLIC_REPO_TOKEN`
-4. In the **Secret** field, paste the token you copied in Step 1
-5. Click **Add secret**
-6. You can throw away your temporary copy of the token now — GitHub is storing it safely.
-
----
-
-### Step 3 — Create the Google Apps Script Project
+### Step 1 — Create the Google Apps Script Project
 
 1. Open this link: https://script.google.com
 2. Click **New Project** (top left)
@@ -93,7 +66,7 @@ You now have 3 `.gs` files in the Apps Script editor: `Code` (the main script), 
 
 ---
 
-### Step 4 — Add the Manifest File (appsscript.json)
+### Step 2 — Add the Manifest File (appsscript.json)
 
 The script needs certain permissions to update itself from GitHub and to send summary emails. These are declared in a hidden "manifest" file. You need to make it visible, then paste in the right contents.
 
@@ -142,7 +115,7 @@ The exact contents you should paste are:
 
 ---
 
-### Step 5 — Link a GCP Project and Enable the Apps Script API
+### Step 3 — Link a GCP Project and Enable the Apps Script API
 
 The sync function calls the Apps Script API to update its own code. Google creates a hidden GCP project for every Apps Script project, but you can't enable APIs on it (you don't have access). You need to link your own GCP project instead.
 
@@ -199,7 +172,7 @@ You do NOT need to click "Publish App" or submit for verification. Apps in **Tes
 
 ---
 
-### Step 6 — Run the Script for the First Time
+### Step 4 — Run the Script for the First Time
 
 This installs the automatic schedules (purge + GitHub sync) and grants the permissions.
 
@@ -229,7 +202,7 @@ This means your email hasn't been added as a test user in the OAuth consent scre
 
 ---
 
-### Step 7 — Test the Sync from GitHub
+### Step 5 — Test the Sync from GitHub
 
 Let's make sure the script can pull updates from GitHub.
 
@@ -239,13 +212,13 @@ Let's make sure the script can pull updates from GitHub.
 4. Look at the log. If it says **"All files are already up to date"**, the sync is working
 5. If it says **"Script updated successfully from GitHub"**, that means there was a newer version on GitHub and it just pulled it in
 6. If you see a warning or error, check that:
-   - You enabled the Apps Script API in Step 5
-   - The GitHub Actions workflow ran (check https://github.com/zamarax/Personal/actions)
-   - The Public repo has the `.gs` files: https://github.com/zamarax/Public/tree/main/Scripts/GoogleScripts
+   - You enabled the Apps Script API in Step 3
+   - The GCP project from Step 3 is the one linked to your Apps Script project
+   - This public repo has the `.gs` files: https://github.com/zamarax/Public/tree/main/Scripts/GoogleScripts
 
 ---
 
-### Step 8 — Customize Your Settings (Optional)
+### Step 6 — Customize Your Settings (Optional)
 
 Want to change how the script behaves? Edit **`UserConfig.gs`** — NOT `Config.gs`.
 
@@ -264,7 +237,7 @@ Want to change how the script behaves? Edit **`UserConfig.gs`** — NOT `Config.
 
 ---
 
-### Step 9 — Test the Purge (Safe Dry Run)
+### Step 7 — Test the Purge (Safe Dry Run)
 
 Let's test the email deletion WITHOUT actually deleting anything first.
 
@@ -280,12 +253,12 @@ Let's test the email deletion WITHOUT actually deleting anything first.
 
 ### You're Done!
 
-From now on, the flow is:
+From now on, the script in your Apps Script project updates itself automatically:
 
-1. **Code updates**: Edit `Google-Gmail-Clean-Up-Sent-Items.gs` or `Config.gs` in the Personal repo → push to GitHub → within 6 hours the script in Google Apps Script will update itself automatically
-2. **Your settings**: Edit `UserConfig.gs` directly in the Apps Script editor — it is never overwritten
+1. **Code updates** — when the maintainer publishes changes to this public repo, your Apps Script copy pulls them in within a few hours. You don't need to do anything, and you don't need write access to the repo.
+2. **Your settings** — edit `UserConfig.gs` directly in the Apps Script editor. It is never overwritten by sync.
 
-No need to ever open the Apps Script editor for code updates. The *only* reason you ever need to revisit the Apps Script editor is to change **trigger schedules** or to tweak your **UserConfig.gs** settings (see the "Adjusting Triggers" section below).
+You only need to revisit the Apps Script editor to change **trigger schedules** or tweak **UserConfig.gs** settings (see the "Adjusting Triggers" section below).
 
 ---
 
@@ -437,7 +410,7 @@ The default `UserConfig.gs` uses `['from:me']` for this reason. Switch to `['^se
 | `summaryEmailTo` | (script owner email) | Recipient address for the summary email |
 | `summaryEmailSubject` | `'Gmail Clean-Up Report — Sent Items Purge'` | Subject line prefix for summary emails |
 
-> If you see the error `Specified permissions are not sufficient to call MailApp.sendEmail`, the `script.send_mail` scope wasn't granted at authorization time. Re-paste the `appsscript.json` contents (Step 4), save, and re-run `installAllTriggers` to be re-prompted for the new permission. If you don't want summary emails at all, set `sendSummaryEmail: false` in `UserConfig.gs`.
+> If you see the error `Specified permissions are not sufficient to call MailApp.sendEmail`, the `script.send_mail` scope wasn't granted at authorization time. Re-paste the `appsscript.json` contents (Step 2), save, and re-run `installAllTriggers` to be re-prompted for the new permission. If you don't want summary emails at all, set `sendSummaryEmail: false` in `UserConfig.gs`.
 
 #### Dry-Run / Simulation Mode
 
