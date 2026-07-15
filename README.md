@@ -1,27 +1,35 @@
-# Public Google Scripts
+# Public
 
-Self-updating [Google Apps Script](https://script.google.com) projects that sync their own code from this repo. No clasp, no OAuth tokens, no CLI tools — once set up, a script updates itself from here every few hours.
+A public collection of scripts, utilities, and small tools I've built across a mix of platforms and
+languages. Each platform keeps to its own folder so its setup and conventions stay self-contained —
+you don't need to wade through unrelated tooling to find what's relevant to you.
 
-## Available scripts
+## Repository layout
 
-| Script | What it does | Setup |
-|--------|--------------|-------|
-| [Gmail — Clean Up Sent Items](./Scripts/GoogleScripts/Google-Gmail-Clean-Up-Sent-Items.gs/) | Trashes old **sent emails** (message-level, not whole threads) once they exceed a configurable age. Handles old messages hidden inside threads that have a recent reply. | [README](./Scripts/GoogleScripts/Google-Gmail-Clean-Up-Sent-Items.gs/README.md) |
-| [Google Drive — Clean Up Folders + Files](./Scripts/GoogleScripts/Google-Drive-Clean-Up-Folders+Files.gs/) | Trashes old **files** in specified Google Drive folders. Each folder gets its own retention window, with per-folder and **global** file-name exclusions so you can protect specific files anywhere. | [README](./Scripts/GoogleScripts/Google-Drive-Clean-Up-Folders+Files.gs/README.md) |
+```
+Scripts/
+  <Platform>/              e.g. GoogleScripts/
+    README.md              platform index — start there for the list of scripts and how they're installed
+    <ProjectName>/
+      README.md            per-project setup (the full deployer walkthrough)
+      ...
+```
 
-Both scripts share the same features:
+Pick the platform you care about, open that subfolder's `README.md`, and it lists everything available
+there with one-line summaries and links to each project's own setup guide.
 
-- **Dry-run mode** — preview what would be deleted without touching anything
-- **Configurable schedule** — daily / hourly / weekly on any weekday / every N minutes
-- **Per-user settings** — your config lives in `UserConfig.gs` and is never overwritten by sync
-- **Summary email** — a report after each run
-- **Auto-sync** — the script pulls its own updates from this repo automatically; you only revisit the Apps Script editor to change settings or the schedule
+## What's available right now
 
-## How to use one
+| Subfolder | Platform | Description |
+|-----------|----------|-------------|
+| [Scripts/GoogleScripts/](./Scripts/GoogleScripts/) | Google Apps Script | Self-updating scripts (Gmail, Drive...) that pull their own code from this repo on a schedule. Open that folder's [README](./Scripts/GoogleScripts/README.md) for the full list and install steps. |
 
-1. Pick a script above and open its `README.md` for the full step-by-step setup.
-2. In short: create a Google Apps Script project, paste in the `.gs` files + `Config.gs` + the `appsscript.json` manifest, link a GCP project, run `installAllTriggers()`, then run a dry-run `purge` to verify before going live.
+New platforms get added as their own subfolders over time — none of the platform indexes depend on
+this root file, so browse directly into the one you want.
 
-## For the repo maintainer
+## About
 
-The contents of this Public repo are published here automatically by a GitHub Actions workflow from a private source repo. To change what deployers see in a project's `README.md`, edit `README.public.md` in the private repo and push — the workflow republishes it here. The top-level `Scripts/GoogleScripts/README.md` index is also republished automatically.
+Curated by Corey Zamara. Everything here is something I actually use day-to-day; the public mirror
+exists so anyone else can run the same tools. Each project's README has the complete, copy-pasteable
+setup from scratch — no prior context assumed.
+
