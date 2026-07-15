@@ -116,11 +116,13 @@ The exact contents you should paste are:
 
 ---
 
-### Step 3 — Link a GCP Project and Enable the Apps Script API
+### Step 3 — Link a GCP Project and Enable the Apps Script + Drive APIs
 
-The sync function calls the Apps Script API to update its own code. Google creates a hidden GCP project for every Apps Script project, but you can't enable APIs on it (you don't have access). You need to link your own GCP project instead.
+The sync function calls the Apps Script API to update its own code, and the purge logic calls the Google Drive API to list and trash files. Google creates a hidden GCP project for every Apps Script project, but you can't enable APIs on it (you don't have access). You need to link your own GCP project instead.
 
-**Part A — Create a GCP project and enable the API:**
+**Part A — Create a GCP project and enable the APIs:**
+
+You need to enable **two** APIs on this project: the **Apps Script API** (so the script can update its own code from GitHub) and the **Google Drive API** (so the script can list and trash files in your Drive). If you forget the Drive API, you'll get the error `Permission denied while enabling APIs: drive for GCP project ...`.
 
 1. Go to https://console.cloud.google.com/
 2. Click the project dropdown at the top → **New Project**
@@ -128,8 +130,9 @@ The sync function calls the Apps Script API to update its own code. Google creat
 4. Once created, open it (select it from the dropdown)
 5. Copy the **Project Number** shown at the top of the dashboard (a long number like `123456789012`) — you'll need it soon
 6. Go to **APIs & Services → Library** (left sidebar)
-7. Search for **"Google Apps Script API"** and click it
-8. Click **Enable**
+7. Search for **"Google Apps Script API"** and click it → **Enable**
+8. Back on the Library page, search for **"Google Drive API"** and click it → **Enable**
+9. (Optional sanity check) Go to **APIs & Services → Enabled APIs & Services** and confirm both "Apps Script API" and "Google Drive API" are listed as ON
 
 **Part B — Configure the OAuth consent screen:**
 
@@ -189,7 +192,7 @@ You do NOT need to click "Publish App". Apps in **Testing** mode with yourself a
 2. Click **Run**
 3. "All files are already up to date" = sync is working. "Script updated successfully" = it pulled a newer version from GitHub.
 4. If you see an error, check that:
-   - You enabled the Apps Script API in Step 3
+   - You enabled BOTH the Apps Script API and the Google Drive API in Step 3 (the Drive API one is easy to miss)
    - The GCP project from Step 3 is the one linked to your Apps Script project
    - This public repo has the `.gs` files: https://github.com/zamarax/Public/tree/main/Scripts/GoogleScripts
 
@@ -274,6 +277,28 @@ targetFolders: [
 ```
 
 > **Non-recursive:** the script trashes files directly **in** a folder, not files nested inside its subfolders. To clean a subfolder, add it as its own `targetFolders` entry.
+
+##### How to find a folder's ID
+
+**Method 1 — from the Drive web UI (fastest):**
+
+1. Go to https://drive.google.com and open the folder you want to clean
+2. Copy the URL in your browser's address bar. It ends with the folder ID:
+   `https://drive.google.com/drive/folders/0ByDg99kjAaJI...theIDIsHere`
+3. The folder ID is the long string after `/folders/`. Drop any `?resourcekey=...` suffix.
+
+**Method 2 — from Apps Script (lists every top-level folder you own):**
+
+The script ships with a `listMyFolders()` helper for exactly this. In the Apps Script editor:
+
+1. Pick **`listMyFolders`** from the function dropdown at the top
+2. Click **Run**
+3. Open the **Execution log** (bottom of the screen) — it prints one line per folder:
+   `Folder Name  |  0ByDg99kjAaJIcFQyRjNSTDhrV00`
+
+> This lists only folders at the root of "My Drive". For a nested folder, use Method 1 (copy it from the Drive URL), or use the folder's `name` instead of its ID.
+
+> **Folder IDs vs file IDs:** a folder's URL ends in `/folders/<ID>`; a file's URL ends in `/file/d/<ID>`. Use folder IDs in `targetFolders[].id`, and file IDs (or names) in `excludeFiles` / `globalExcludeFiles` if you're excluding by ID.
 
 #### Global Excludes (`globalExcludeFiles`)
 
@@ -393,6 +418,7 @@ Select **`removeAllTriggers`** → **Run**. To turn it back on later, run `insta
 | `purgeMore()` | Continuation wrapper for batch processing. Called automatically when more results remain. |
 | `syncFromGitHub()` | Pulls the latest code from GitHub and updates the script + Config.gs if changed. UserConfig.gs is preserved. Called automatically by the sync trigger. |
 | `removeAllTriggers()` | Removes all triggers. Run to uninstall the script. |
+| `listMyFolders()` | Lists every top-level folder in My Drive with its name and ID. Run manually to discover folder IDs for `targetFolders`. |
 
 ## Uninstall
 

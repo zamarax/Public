@@ -695,3 +695,28 @@ function describeFolderEntry(entry) {
   if (entry.name) return '{ name: "' + entry.name + '" }'
   return JSON.stringify(entry)
 }
+
+// ===========================================================================
+// Convenience helpers (safe to run manually; not used by purge itself)
+// ===========================================================================
+
+/**
+ * Lists every top-level folder in "My Drive" with its name and ID. Run this
+ * manually from the Apps Script editor (function dropdown -> listMyFolders
+ * -> Run) to discover the folder IDs you need for targetFolders[].id.
+ *
+ * NOTE: this only lists folders directly at the root of My Drive, not
+ * nested ones. For a nested folder's ID, copy it from the Drive web URL
+ * (the part after /folders/) or reference the folder by name instead.
+ */
+function listMyFolders() {
+  var folders = DriveApp.getFolders()
+  var rows = []
+  while (folders.hasNext()) {
+    var f = folders.next()
+    rows.push(f.getName() + '  |  ' + f.getId())
+  }
+  rows.sort()
+  console.info('Found ' + rows.length + ' top-level folder(s) in My Drive:')
+  console.info(rows.join('\n'))
+}
