@@ -503,19 +503,24 @@ function purge() {
       console.info('Deep search complete: ' + pageStart + ' total threads fetched')
     }
 
-    // Diagnostic: search for threads with known old sent messages directly
-    // to verify they're being found
-    var diagSearch = '^sent older_than:1500d'
-    console.info('Diagnostic search: ' + diagSearch)
-    var diagThreads = GmailApp.search(diagSearch, 0, 50)
-    console.info('  -> ' + diagThreads.length + ' threads older than 1500d')
-    for (var dt = 0; dt < diagThreads.length; dt++) {
-      var dthread = diagThreads[dt]
-      var dmsgs = dthread.getMessages()
-      var dlabels = dthread.getLabels().map(function (l) { return l.getName() })
-      console.info('  DIAG: "' + dthread.getFirstMessageSubject() +
-        '" msgCount=' + dmsgs.length +
-        ' labels=[' + (dlabels.length ? dlabels.join(', ') : 'none') + ']')
+    // Diagnostic: search using each configured query (instead of a hardcoded
+    // ^sent) so we can verify whether messages like the IMAP-uploaded
+    // "Saddlewood Logo" thread are actually being found by the real queries.
+    // ^sent only matches Gmail's native Sent mailbox; IMAP-uploaded sent
+    // messages (e.g. sent from Outlook/Apple Mail) require from:me.
+    for (var dq = 0; dq < queries.length; dq++) {
+      var diagSearch = queries[dq] + ' older_than:1500d'
+      console.info('Diagnostic search: ' + diagSearch)
+      var diagThreads = GmailApp.search(diagSearch, 0, 50)
+      console.info('  -> ' + diagThreads.length + ' threads older than 1500d')
+      for (var dt = 0; dt < diagThreads.length; dt++) {
+        var dthread = diagThreads[dt]
+        var dmsgs = dthread.getMessages()
+        var dlabels = dthread.getLabels().map(function (l) { return l.getName() })
+        console.info('  DIAG: "' + dthread.getFirstMessageSubject() +
+          '" msgCount=' + dmsgs.length +
+          ' labels=[' + (dlabels.length ? dlabels.join(', ') : 'none') + ']')
+      }
     }
   }
 
