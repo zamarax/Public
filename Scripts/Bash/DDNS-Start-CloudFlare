@@ -1,0 +1,155 @@
+#!/bin/sh
+
+# Cloudflare API credentials and domain details
+CLOUDFLARE_TOKEN="YOUR_CLOUDFLARE_TOKEN_HERE"
+FULL_DOMAIN_NAME="yourdomain.com"  # Set to "www.yourdomain.com" for subdomain (e.g., www.yourdomain.com) or "yourdomain.com" for root domain
+UPDATE_TYPE="both"  # Options: "ipv4", "ipv6", "both"
+LOG_FILE="/tmp/cloudflare_ddns.log"
+IP_FILE_IPV4="/tmp/cloudflare_current_ip"
+#IP_FILE_IPV6="/tmp/cloudflare_current_ip6"
+
+echo "Starting Cloudflare DDNS update script for ${FULL_DOMAIN_NAME}..."
+
+# Extract DOMAIN_NAME from FULL_DOMAIN_NAME
+DOMAIN_NAME=$(echo $FULL_DOMAIN_NAME | awk -F. '{print $(NF-1)"."$NF}')
+
+# Fetch Cloudflare Zone ID
+echo "Fetching Cloudflare Zone ID..."
+ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=${DOMAIN_NAME}" \
+    -H "Authorization: Bearer ${CLOUDFLARE_TOKEN}" \
+    -H "Content-Type: application/json")
+
+CLOUDFLARE_ZONE_ID=$(echo $ZONE_RESPONSE | grep -o '"id":"[^"]*' | head -n 1 | grep -o '[^"]*$')
+
+if [ -z "$CLOUDFLARE_ZONE_ID" ]; then
+  echo "Failed to fetch Cloudflare Zone ID."
+  exit 1
+fi
+echo "Cloudflare Zone ID is ${CLOUDFLARE_ZONE_ID}"
+
+# Get the current public IPv4 address if needed
+if [ "$UPDATE_TYPE" = "ipv4" ] || [ "$UPDATE_TYPE" = "both" ]; then
+  echo "Fetching current public IPv4 address..."
+  CURRENT_IP=$(curl -s http://checkip.amazonaws.com)
+  if [ -z "$CURRENT_IP" ]; then
+    echo "Failed to fetch current public IPv4 address."
+    exit 1
+  fi
+  echo "Current public IPv4 address is ${CURRENT_IP}"
+fi
+
+# Get the current public IPv6 address if needed
+#if [ "$UPDATE_TYPE" = "ipv6" ] || [ "$UPDATE_TYPE" = "both" ]; then
+#  echo "Fetching current public IPv6 address..."
+#  CURRENT_IP6=$(curl -s http://ipv6.icanhazip.com)
+#  if [ -z "$CURRENT_IP6" ]; then
+#    echo "Failed to fetch current public IPv6 address."
+#    exit 1
+#  fi
+#  echo "Current public IPv6 address is ${CURRENT_IP6}"
+#fi
+
+# Get the Cloudflare Record ID for IPv4 if needed
+if [ "$UPDATE_TYPE" = "ipv4" ] || [ "$UPDATE_TYPE" = "both" ]; then
+  echo "Fetching Cloudflare Record ID for IPv4..."
+  RECORD_RESPONSE_IPV4=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records?name=${FULL_DOMAIN_NAME}&type=A" \
+       -H "Authorization: Bearer ${CLOUDFLARE_TOKEN}" \
+       -H "Content-Type: application/json")
+
+  CLOUDFLARE_RECORD_ID_IPV4=$(echo $RECORD_RESPONSE_IPV4 | grep -o '"id":"[^"]*' | head -n 1 | grep -o '[^"]*$')
+
+  if [ -z "$CLOUDFLARE_RECORD_ID_IPV4" ]; then
+    echo "Failed to fetch Cloudflare Record ID for IPv4."
+    echo "Response was: $RECORD_RESPONSE_IPV4"
+    exit 1
+  fi
+  echo "Cloudflare Record ID for IPv4 is ${CLOUDFLARE_RECORD_ID_IPV4}"
+fi
+
+# Get the Cloudflare Record ID for IPv6 if needed
+#if [ "$UPDATE_TYPE" = "ipv6" ] || [ "$UPDATE_TYPE" = "both" ]; then
+#  echo "Fetching Cloudflare Record ID for IPv6..."
+#  RECORD_RESPONSE_IPV6=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records?name=${FULL_DOMAIN_NAME}&type=AAAA" \
+#       -H "Authorization: Bearer ${CLOUDFLARE_TOKEN}" \
+#       -H "Content-Type: application/json")
+#
+#  CLOUDFLARE_RECORD_ID_IPV6=$(echo $RECORD_RESPONSE_IPV6 | grep -o '"id":"[^"]*' | head -n 1 | grep -o '[^"]*$')
+#
+#  if [ -z "$CLOUDFLARE_RECORD_ID_IPV6" ]; then
+#    echo "Failed to fetch Cloudflare Record ID for IPv6."
+#    echo "Response was: $RECORD_RESPONSE_IPV6"
+#    exit 1
+#  fi
+#  echo "Cloudflare Record ID for IPv6 is ${CLOUDFLARE_RECORD_ID_IPV6}"
+#fi
+
+# Compare with the previous IPv4 address if needed
+if [ "$UPDATE_TYPE" = "ipv4" ] || [ "$UPDATE_TYPE" = "both" ]; then
+  if [ -f "$IP_FILE_IPV4" ]; then
+    LAST_IP=$(cat "$IP_FILE_IPV4")
+  else
+    LAST_IP=""
+  fi
+
+  if [ "$CURRENT_IP" != "$LAST_IP" ]; then
+    echo "IPv4 address has changed. Updating Cloudflare DNS record..."
+    RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records/${CLOUDFLARE_RECORD_ID_IPV4}" \
+         -H "Authorization: Bearer ${CLOUDFLARE_TOKEN}" \
+         -H "Content-Type: application/json" \
+         --data '{"type":"A","name":"'${FULL_DOMAIN_NAME}'","content":"'${CURRENT_IP}'","ttl":120,"proxied":false}')
+
+    if echo "$RESPONSE" | grep -q '"success":true'; then
+      echo "IPv4 DNS record updated successfully."
+      echo "$CURRENT_IP" > "$IP_FILE_IPV4"
+      UPDATE_REQUIRED=true
+    else
+      echo "Failed to update IPv4 DNS record. Response: $RESPONSE"
+    fi
+
+    echo "$(date) - IPv4: $RESPONSE" >> "$LOG_FILE"
+  else
+    echo "IPv4 address has not changed. No update needed."
+  fi
+fi
+
+# Compare with the previous IPv6 address if needed
+#if [ "$UPDATE_TYPE" = "ipv6" ] || [ "$UPDATE_TYPE" = "both" ]; then
+#  if [ -f "$IP_FILE_IPV6" ]; then
+#    LAST_IP6=$(cat "$IP_FILE_IPV6")
+#  else
+#    LAST_IP6=""
+#  fi
+#
+#  if [ "$CURRENT_IP6" != "$LAST_IP6" ]; then
+#    echo "IPv6 address has changed. Updating Cloudflare DNS record..."
+#    RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records/${CLOUDFLARE_RECORD_ID_IPV6}" \
+#         -H "Authorization: Bearer ${CLOUDFLARE_TOKEN}" \
+#         -H "Content-Type: application/json" \
+#         --data '{"type":"AAAA","name":"'${FULL_DOMAIN_NAME}'","content":"'${CURRENT_IP6}'","ttl":120,"proxied":false}')
+#    if echo "$RESPONSE" | grep -q '"success":true'; then
+#      echo "IPv6 DNS record updated successfully."
+#      echo "$CURRENT_IP6" > "$IP_FILE_IPV6"
+#      UPDATE_REQUIRED=true
+#    else
+#      echo "Failed to update IPv6 DNS record. Response: $RESPONSE"
+#    fi
+#
+#    echo "$(date) - IPv6: $RESPONSE" >> "$LOG_FILE"
+#  else
+#    echo "IPv6 address has not changed. No update needed."
+#  fi
+#fi
+
+if [ "$UPDATE_REQUIRED" = false ]; then
+  echo "No updates were required for either IPv4 or IPv6."
+fi
+
+echo "Cloudflare DDNS update script completed."
+
+#if [ $? -eq 0 ]; then
+    /sbin/ddns_custom_updated 1
+#else
+#    /sbin/ddns_custom_updated 0
+#fi
+
+exit 0
