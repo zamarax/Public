@@ -8,7 +8,7 @@ you don't need to wade through unrelated tooling to find what's relevant to you.
 
 ```
 Scripts/
-  <Platform>/              e.g. GoogleScripts/
+  <Platform>/              e.g. GoogleScripts/, Bash/
     README.md              platform index — start there for the list of scripts and how they're installed
     <ProjectName>/
       README.md            per-project setup (the full deployer walkthrough)
@@ -22,6 +22,7 @@ there with one-line summaries and links to each project's own setup guide.
 
 | Subfolder | Platform | Description |
 |-----------|----------|-------------|
+| [Scripts/Bash/](./Scripts/Bash/) | POSIX shell / bash | Small shell utilities and automations (e.g. a self-contained Cloudflare DDNS updater). Scripts ship with secrets redacted to placeholders — fill in your own values before running. |
 | [Scripts/GoogleScripts/](./Scripts/GoogleScripts/) | Google Apps Script | Self-updating scripts (Gmail, Drive...) that pull their own code from this repo on a schedule. Open that folder's [README](./Scripts/GoogleScripts/README.md) for the full list and install steps. |
 
 New platforms get added as their own subfolders over time — none of the platform indexes depend on

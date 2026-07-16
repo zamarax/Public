@@ -8,6 +8,7 @@ apart keeps each one self-contained and easy to pick up.
 
 | Subfolder | Platform | What's in it |
 |-----------|----------|--------------|
+| [Bash/](./Bash/) | POSIX shell / bash | Small shell utilities and automations (e.g. a self-contained Cloudflare DDNS updater). Scripts ship with secrets redacted to placeholders — fill in your own values before running. |
 | [GoogleScripts/](./GoogleScripts/) | Google Apps Script | Self-syncing `.gs` projects that pull their own updates from this repo. Gmail, Drive, and similar Google-ecosystem automations. See that folder's [README](./GoogleScripts/) for the project list and the shared auto-sync setup. |
 
 New platform subfolders appear here as their content gets published — each is independent,
